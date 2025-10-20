@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>我的网站 · 主站 + 拟物书架</title>
+<style>
+  /* ===== 基础主题变量（主站 & 书架共用） ===== */
+  :root{
+    --sidebar-w: 280px;
+    --bg: #0f172a;             /* 侧栏背景 */
+    --panel: #0b1020;          /* 页面背景 */
+    --txt: #e5e7eb;
+    --muted: #9aa4b2;
+    --hover: #172033;
+    --accent: #60a5fa;
+    --accent-2: #34d399;
+    --radius: 12px;
+    --shadow: 0 8px 30px rgba(0,0,0,.35);
+    --duration: 220ms;
+    --bezier: cubic-bezier(.2,.7,.2,1);
+
+    /* 书架拟物专用 */
+    --bg-grad: radial-gradient(1200px 800px at 20% -10%, #111b33 0%, #0b1020 40%, #090f1b 100%);
+    --wood-hi: #3b2b20;
+    --wood-mid: #2c211a;
+    --wood-low: #1b1310;
+    --steel-reflect: linear-gradient(120deg, rgba(255,255,255,.65) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,.25) 65%, rgba(255,255,255,0) 100%);
+    --shelf-thick: 24px;
+    --shelf-gap: 58px;
+    --card-min: 200px;
+    --cover-ratio: 3/3;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC","Hiragino Sans GB","Microsoft YaHei", Arial, "Noto Sans", sans-serif;
+    color:var(--txt);
+    background: radial-gradient(1200px 800px at 20% -10%, #111b33 0%, #0b1020 40%, #090f1b 100%);
+    display:grid; grid-template-columns: var(--sidebar-w) 1fr; min-height:100vh;
+  }
+
+  /* ===== 侧栏（复用之前的动效/无障碍） ===== */
+  aside{ position:sticky; top:0; height:100svh; background: linear-gradient(160deg, var(--bg), #0d152a 60%, #0a1326 100%); border-right:1px solid rgba(255,255,255,.06); padding:18px 14px; }
+  .brand{ display:flex; align-items:center; gap:12px; padding:12px; border-radius:14px; text-decoration:none; color:var(--txt);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    background: linear-gradient(140deg, rgba(96,165,250,.25), transparent 40%) border-box,
+               linear-gradient(140deg, rgba(52,211,153,.25), transparent 60%) border-box,
+               rgba(255,255,255,.02); margin-bottom: 16px; }
+  .brand i{ display:grid; place-items:center; width:38px; height:38px; border-radius:10px; background: conic-gradient(from 280deg, #60a5fa, #34d399, #a78bfa, #60a5fa); color:#0a1020; font-weight:900; font-style:normal; box-shadow: var(--shadow);}
+  .brand small{ color:var(--muted); font-size:12px; margin-left:auto }
+
+  .nav{ list-style:none; margin:0; padding:4px; }
+  .section{ margin:8px 0 10px; border-radius: var(--radius); overflow: clip; }
+  .trigger{ width:100%; display:flex; align-items:center; gap:10px; padding:12px; color:var(--txt); background:transparent; border:0; border-radius: var(--radius); cursor:pointer; text-align:left; font:inherit; }
+  .trigger:hover{ background: var(--hover); }
+  .icon{ width:24px; display:grid; place-items:center; opacity:.92 }
+  .label{ flex:1 1 auto; }
+  .chev{ width: 16px; height:16px; transform: rotate(-90deg); opacity:.85; transition: transform var(--duration) var(--bezier); }
+  .section[data-open="true"] .chev{ transform: rotate(0deg); }
+  .submenu-wrap{ height:0; overflow:hidden; transition: height var(--duration) var(--bezier); }
+  .submenu{ list-style:none; margin:0; padding: 6px 8px 12px 44px; background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01)); border-radius: 0 0 var(--radius) var(--radius); }
+  .submenu a{ display:block; padding:8px 10px; color:var(--muted); text-decoration:none; border-radius:8px; opacity:0; transform: translateY(-2px); transition: .22s var(--bezier); }
+  .section[data-open="true"] .submenu a{ opacity:1; transform: translateY(0); }
+  .submenu a:hover{ background:#152036; color:var(--txt); }
+  .active{ color: var(--accent) !important; }
+
+  /* ===== 主内容容器 ===== */
+  main{ padding: 30px 34px 80px; }
+  .page-title{ font-size: 30px; margin: 10px 0 14px; font-weight: 800; }
+  .lead{ color:var(--muted); line-height:1.7; max-width:70ch; }
+
+  /* ====== 视图：仪表盘（示例） ====== */
+  .cards{ margin-top:24px; display:grid; grid-template-columns: repeat(12,1fr); gap:16px; }
+  .card{ grid-column: span 6; background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); border:1px solid rgba(255,255,255,.06); }
+  .hidden{ display:none !important; }
+
+  /* ====== 视图：拟物书架 ====== */
+  .wall{ max-width:1240px; margin: 8px auto 0; padding-right: 6px; } /* 与 main 内边距协调 */
+  .shelf{ position:relative; padding-bottom: calc(var(--shelf-gap) + var(--shelf-thick)); margin-bottom:10px; }
+  .shelf::after{
+    content:""; position:absolute; left:-18px; right:-18px; bottom:0; height: var(--shelf-thick); border-radius:10px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 40%),
+      repeating-linear-gradient(90deg, rgba(110,78,57,.14) 0 6px, rgba(110,78,57,.05) 6px 12px),
+      linear-gradient(180deg, var(--wood-hi), var(--wood-mid) 55%, var(--wood-low) 100%);
+    box-shadow: 0 24px 40px rgba(0,0,0,.55), inset 0 3px 0 rgba(255,255,255,.08), inset 0 -10px 20px rgba(0,0,0,.45);
+  }
+  .shelf::before{ content:""; position:absolute; left:-18px; right:-18px; bottom: calc(var(--shelf-thick) - 6px); height: 8px; border-radius:8px 8px 0 0; background: linear-gradient(180deg, rgba(0,0,0,.45), rgba(255,255,255,.08)); opacity:.35; filter: blur(.4px); }
+  .shelf-label{
+    position:absolute; left:50%; transform: translateX(-50%); bottom: calc(var(--shelf-thick) + 12px);
+    display:inline-flex; align-items:center; gap:10px; padding:8px 14px; border-radius:999px;
+    color:#0a1020; font-weight:800; letter-spacing:.6px; text-transform: uppercase;
+    background: var(--steel-reflect), linear-gradient(180deg, #e6eef7, #c8d4e3 55%, #b0bdcd);
+    box-shadow: 0 8px 18px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.9), inset 0 -2px 0 rgba(0,0,0,.15);
+    border:1px solid rgba(40,60,80,.45);
+  }
+  .shelf-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(var(--card-min), 1fr)); gap:18px; align-items:end; }
+  .card-s{ position:relative; border-radius:14px; padding:10px 10px 12px; background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+           border:1px solid rgba(255,255,255,.08); box-shadow: var(--shadow); transform: translateY(0) rotateZ(0);
+           transition: transform var(--duration) var(--bezier), box-shadow var(--duration) var(--bezier), border-color var(--duration) var(--bezier);}
+  .card-s:hover{ transform: translateY(-8px) rotateZ(-.4deg); box-shadow: 0 18px 50px rgba(0,0,0,.55); border-color: rgba(96,165,250,.35); }
+  .cover-s{ width:100%; aspect-ratio: var(--cover-ratio); display:block; object-fit:cover; border-radius:12px; background:#0f172a; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); position:relative; overflow:hidden; }
+  .cover-s::after{ content:""; position:absolute; inset:0; background: linear-gradient(120deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,.10) 58%, rgba(255,255,255,0) 75%); mix-blend-mode: screen; pointer-events:none; }
+  .name-s{ display:flex; align-items:center; gap:8px; margin:10px 6px 0; font-weight:800; }
+  .name-s .dot{ width:7px; height:7px; border-radius:50%; background: radial-gradient(circle at 30% 30%, var(--accent), #3a79ff 70%, #2750a8); box-shadow: 0 0 8px rgba(96,165,250,.6); }
+  .desc-s{ margin: 4px 6px 0; color: var(--muted); font-size:12px; }
+  .actions-s{ display:flex; gap:10px; padding:10px 6px 0; }
+  .btn{ appearance:none; border:1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.03); color:var(--txt); font-size:12px; padding:6px 10px; border-radius:999px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; transition: background var(--duration) var(--bezier), border-color var(--duration) var(--bezier), transform 120ms ease; }
+  .btn:hover{ background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.18); }
+  .btn:active{ transform: translateY(1px); }
+  .btn.primary{ border-color: rgba(96,165,250,.45); background: rgba(96,165,250,.14); }
+
+  /* 自适应 */
+  @media (max-width: 960px){
+    body{ grid-template-columns:1fr; }
+    aside{ position: static; height:auto; border-right:none; border-bottom:1px solid rgba(255,255,255,.06); }
+    .card{ grid-column: span 12; }
+  }
+
+</style>
+</head>
+<body>
+
+  <!-- ===== 侧栏 ===== -->
+  <aside>
+    <a class="brand" href="#dashboard" aria-label="返回仪表盘">
+      <i>Λ</i>
+      <div>
+        <strong>我的网站</strong><br>
+        <span style="font-size:12px; color:var(--muted)">Sidebar + Bookshelf</span>
+      </div>
+      <small>v1.1</small>
+    </a>
+
+    <nav aria-label="侧边导航">
+      <ul class="nav">
+
+        <!-- 仪表盘组 -->
+        <li class="section" data-id="dashboard" data-open="true">
+          <button class="trigger" type="button" aria-expanded="true" aria-controls="sm-dashboard">
+            <span class="icon">📊</span><span class="label">仪表盘</span>
+            <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8.12 9.29L12 13.17l3.88-3.88a1 1 0 0 1 1.41 1.42l-4.59 4.59a1 1 0 0 1-1.41 0L6.7 10.7A1 1 0 0 1 8.12 9.3z"/></svg>
+          </button>
+          <div class="submenu-wrap" id="sm-dashboard" role="region" aria-label="仪表盘 子菜单">
+            <ul class="submenu">
+              <li><a href="2.html" class="active">返回总览</a></li>
+            </ul>
+          </div>
+        </li>
+
+        <!-- 书架（子站整合） -->
+        <li class="section" data-id="bookshelf1">
+          <button class="trigger" type="button" aria-expanded="false" aria-controls="sm-bookshelf">
+            <span class="icon">📚</span><span class="label">深度报告</span>
+            <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8.12 9.29L12 13.17l3.88-3.88a1 1 0 0 1 1.41 1.42l-4.59 4.59a1 1 0 0 1-1.41 0L6.7 10.7A1 1 0 0 1 8.12 9.3z"/></svg>
+          </button>
+          <div class="submenu-wrap" id="sm-bookshelf" role="region" aria-label="书架 子菜单">
+            <ul class="submenu">
+              <li><a href="#bookshelf1" data-route="bookshelf1">深度报告资源书架</a></li>
+              <li><a href="#bookshelf2"data-route="bookshelf2">深度报告成果仓库</a></li>
+              <li><a href="#bookshelf3"data-route="bookshelf3">深度报告指南与模版</a></li>
+            </ul>
+          </div>
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <!-- ===== 主内容区域：两个视图（仪表盘 / 书架） ===== -->
+  <main>
+    <!-- 仪表盘视图 -->
+    <section id="view-dashboard" aria-label="仪表盘" class="route">
+      <h1 class="page-title">深度报告培养指南👋</h1>
+      <p class="lead">这是深度报告培养指南。点击左侧“📚 ”即可查找所需资料以及撰写模版。</p>
+      <div class="cards">
+        <div class="card">
+          <h3>提示</h3>
+          <p>本页面提供制作深度报告的资料、网站，以及制作深度报告的模版<br><br><br><br></p>
+          <img src="深度报告仓库/img/培养.png" alt="图片描述"width="900" height="350">
+        </div>
+        <div class="card">
+          <h3>培养目标</h3>
+          <p>1.深度报告是数据说的进阶版，注重于培养更高的数据分析能力<br>2.多维数据清洗与宏观时序处理能力（深度报告）<br>3.宏观数据治理与核心指标提炼能力（深度报告）<br>4.热点捕捉与政策洞察能力（深度报告）</p>
+        </div>
+      </div>
+    </section>
+
+<!--深度报告-->
+    <!-- b1 -->
+    <section id="view-bookshelf1" aria-label="书架" class="route hidden">
+      <div class="wall">
+        <!-- 层 1 -->
+        <section class="shelf" aria-label="精选 · 相关书籍">
+          <div class="shelf-label" aria-hidden="true"><span style="width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#b9c7d8,#7b8b9d 70%,#4b596a);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)"></span> 网站资源库 <span style="width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#b9c7d8,#7b8b9d 70%,#4b596a);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)"></span></div>
+          <div class="shelf-grid">
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="数据说仓库/img/ths.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 同花顺ifind</h3>
+              <p class="desc-s">数据搜索能力 · 数据源定位 </p>
+              <div class="actions-s"><a class="btn primary" href="http://www.51ifind.com/">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="数据说仓库/img/csmar.png" alt="黑客与画家" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> csmar</h3>
+              <p class="desc-s">数据搜索能力 · 数据源定位</p>
+              <div class="actions-s"><a class="btn primary" href="https://data.csmar.com/">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="数据说仓库/img/mooc.jpg" alt="风之名" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 中国大学MOOC</h3>
+              <p class="desc-s">数据搜索能力 · 精准搜索</p>
+              <div class="actions-s"><a class="btn primary" href="https://www.icourse163.org/">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="数据说仓库/img/sufe.png" alt="风之名" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 上财教学网</h3>
+              <p class="desc-s">数据处理能力 · 数据预处理</p>
+              <div class="actions-s"><a class="btn primary" href="https://bb.shufe.edu.cn/portal">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="数据说仓库/img/sufe.png" alt="风之名" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 上海财经大学实验中心</h3>
+              <p class="desc-s">数据搜索能力 · 精准搜索</p>
+              <div class="actions-s"><a class="btn primary" href="https://lab.sufe.edu.cn/sysjzy/list.htm">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="数据说仓库/img/resset.png" alt="风之名" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> RESSET全球财经资讯平台</h3>
+              <p class="desc-s">数据搜索能力 · 精准搜索</p>
+              <div class="actions-s"><a class="btn primary" href="https://uni.resset.com/">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="数据说仓库/img/人工.png" alt="风之名" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> RESSET全球财经资讯平台</h3>
+              <p class="desc-s">数据搜索能力 · 精准搜索</p>
+              <div class="actions-s"><a class="btn primary" href="https://book.sufe.edu.cn/">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="数据说仓库/img/知网.png" alt="风之名" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 中国知网</h3>
+              <p class="desc-s">数据搜索能力 · 论文知识检索</p>
+              <div class="actions-s"><a class="btn primary" href="http://106.54.32.54:8085/kns8s/defaultresult/index">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="数据说仓库/img/mat.png" alt="风之名" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> matplotlib</h3>
+              <p class="desc-s">数据分析能力 · 数据可视化</p>
+              <div class="actions-s"><a class="btn primary" href="https://matplotlib.org/stable/gallery/index.html">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="数据说仓库/img/sea.png" alt="风之名" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> seaborn</h3>
+              <p class="desc-s">数据分析能力 · 数据可视化</p>
+              <div class="actions-s"><a class="btn primary" href="https://seaborn.org.cn/examples/index.html">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+          </div>
+        </section>  
+        
+        <!-- 层 2 -->
+        <section class="shelf" aria-label="精选 · 相关书籍">
+          <div class="shelf-label" aria-hidden="true"><span style="width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#b9c7d8,#7b8b9d 70%,#4b596a);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)"></span> 公众号资源 <span style="width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#b9c7d8,#7b8b9d 70%,#4b596a);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)"></span></div>
+          <div class="shelf-grid">
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/01.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 爱学习好极了</h3>
+              <p class="desc-s">基于宏观政策学习的量化实验研究共享平台</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/02.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 上海财经大学商学院</h3>
+              <p class="desc-s">分享商业知识，邀约讲座活动。</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/03.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 上财就业CEPC</h3>
+              <p class="desc-s">上海财经大学就业指导中心官方平台</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/04.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 计量经济圈</h3>
+              <p class="desc-s">计量经济学等相关实证学术问题普及和推广者。</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/05.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 世经国贸学术联盟</h3>
+              <p class="desc-s">世界经济、国际贸易观点分享</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/06.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 香樟经济学术圈</h3>
+              <p class="desc-s">致力于提供学术研究公共品</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/07.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 管理世界杂志</h3>
+              <p class="desc-s">介绍杂志内容，读、作者沟通平台，学术交流，杂志订阅等</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/08.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 连享会</h3>
+              <p class="desc-s">连玉君老师团队分享。白话计量，代码实操。</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/09.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 中国工业经济</h3>
+              <p class="desc-s">应用经济学和管理学类的综合性权威理论刊物</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/10.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 财贸经济</h3>
+              <p class="desc-s">应用经济学研究的综合性学术期刊</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/11.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 社科学术汇</h3>
+              <p class="desc-s">经管社科计量经济学、计算社会科学、混合研究方法分享，学术会议讲座论坛</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/12.jpg" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> RStata</h3>
+              <p class="desc-s">一起来学习R语言和Stata吧！</p>
+              <div class="actions-s"><a class="btn primary" href="#">请至微信查看</a></div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- b2 -->
+    <section id="view-bookshelf2" aria-label="书架" class="route hidden">
+      <div class="wall">
+        <!-- 层 1 -->
+        <section class="shelf" aria-label="精选 · 相关书籍">
+          <div class="shelf-label" aria-hidden="true"><span style="width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#b9c7d8,#7b8b9d 70%,#4b596a);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)"></span> 深度报告仓库 <span style="width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#b9c7d8,#7b8b9d 70%,#4b596a);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)"></span></div>
+          <div class="shelf-grid">
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/1.png" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 低空经济</h3>
+              <p class="desc-s">深度报告 · 低空经济</p>
+              <div class="actions-s"><a class="btn primary" href="深度报告仓库/pdf/1.pdf">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/2.png" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 量子科技概念</h3>
+              <p class="desc-s">深度报告 · 量子科技概念</p>
+              <div class="actions-s"><a class="btn primary" href="深度报告仓库/pdf/2.pdf">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/3.png" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 数字经济与细胞治疗</h3>
+              <p class="desc-s">深度报告 · 数字经济与细胞治疗</p>
+              <div class="actions-s"><a class="btn primary" href="深度报告仓库/pdf/3.pdf">查看</a><a class="btn" href="#">收藏</a></div>
+              </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/4.png" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 新能源汽车</h3>
+              <p class="desc-s">深度报告 · 新能源汽车</p>
+              <div class="actions-s"><a class="btn primary" href="深度报告仓库/pdf/4.pdf">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>      
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/5.png" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 养老服务与机器人</h3>
+              <p class="desc-s">深度报告 · 养老服务与机器人</p>
+              <div class="actions-s"><a class="btn primary" href="深度报告仓库/pdf/5.pdf">查看</a><a class="btn" href="#">收藏</a></div>
+            </article> 
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="view-bookshelf3" aria-label="书架" class="route hidden">
+      <div class="wall">
+
+        <!-- b3 -->
+        <!-- 层 1 -->
+        <section class="shelf" aria-label="精选 · 相关书籍">
+          <div class="shelf-label" aria-hidden="true"><span style="width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#b9c7d8,#7b8b9d 70%,#4b596a);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)"></span> 模版撰写 <span style="width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#b9c7d8,#7b8b9d 70%,#4b596a);box-shadow:inset 0 0 0 1px rgba(255,255,255,.4)"></span></div>
+          <div class="shelf-grid">
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="数据说仓库/img/屏幕截图 2025-10-08 160718.png" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 深度报告撰写参考指南</h3>
+              <p class="desc-s">深度报告 · 指南</p>
+              <div class="actions-s"><a class="btn primary" href="数据说仓库/pdf/夏令营指导手册.pdf">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+            <article class="card-s" tabindex="0">
+              <figure class="cover-s"><img src="深度报告仓库/img/1.png" alt="星海彼端" style="width:100%;height:100%;object-fit:cover;border-radius:12px;"></figure>
+              <h3 class="name-s"><span class="dot"></span> 深度报告撰写参考模版</h3>
+              <p class="desc-s">深度报告 · 模版</p>
+              <div class="actions-s"><a class="btn primary" href="深度报告仓库/pdf/1.pdf">查看</a><a class="btn" href="#">收藏</a></div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+<script>
+  /* ============== 侧栏折叠（复用动画逻辑） ============== */
+  const LS_KEY = "sidebar-open-sections";
+  function loadOpenSet(){ try{ return new Set(JSON.parse(localStorage.getItem(LS_KEY) || "[]")); }catch(e){ return new Set(); } }
+  function saveOpenSet(set){ try{ localStorage.setItem(LS_KEY, JSON.stringify([...set])); }catch(e){} }
+  const openSet = loadOpenSet();
+
+  document.querySelectorAll(".section").forEach(section=>{
+    const id = section.getAttribute("data-id");
+    const btn = section.querySelector(".trigger");
+    const wrap = section.querySelector(".submenu-wrap");
+    const shouldOpen = section.getAttribute("data-open")==="true" || openSet.has(id);
+    setOpen(section, btn, wrap, shouldOpen, {skipAnim:true});
+    btn.addEventListener("click", ()=>toggle(section, btn, wrap));
+    btn.addEventListener("keydown", (e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(section,btn,wrap);} });
+    wrap.addEventListener("transitionend", e=>{ if(e.propertyName==="height" && section.getAttribute("data-open")==="true"){ wrap.style.height="auto"; } });
+  });
+  function toggle(section, btn, wrap){
+    const willOpen = section.getAttribute("data-open")!=="true";
+    setOpen(section, btn, wrap, willOpen);
+    const id = section.getAttribute("data-id");
+    if(!id) return;
+    if(willOpen){ openSet.add(id); } else { openSet.delete(id); }
+    saveOpenSet(openSet);
+  }
+  function setOpen(section, btn, wrap, open, opts={}){
+    const skipAnim = opts.skipAnim;
+    if(skipAnim){ section.setAttribute("data-open", open?"true":"false"); btn.setAttribute("aria-expanded", open?"true":"false"); wrap.style.height = open?"auto":"0px"; return; }
+    const currentHeight = wrap.getBoundingClientRect().height;
+    if(open){
+      section.setAttribute("data-open","true"); btn.setAttribute("aria-expanded","true");
+      wrap.style.height = currentHeight + "px"; void wrap.offsetHeight; wrap.style.height = wrap.scrollHeight + "px";
+    }else{
+      if(getComputedStyle(wrap).height === "auto"){ wrap.style.height = wrap.scrollHeight + "px"; void wrap.offsetHeight; }
+      section.setAttribute("data-open","false"); btn.setAttribute("aria-expanded","false"); wrap.style.height = "0px";
+    }
+  }
+
+  /* ============== 简易哈希路由：#dashboard / #bookshelf ============== */
+  const routes = {
+    '#dashboard': 'view-dashboard',
+    '#bookshelf1': 'view-bookshelf1',
+    '#bookshelf2': 'view-bookshelf2',
+    '#bookshelf3': 'view-bookshelf3',
+    '#bookshelf4': 'view-bookshelf4',
+    '#A1': 'view-A1',
+    '#A2': 'view-A2',
+    '#A3': 'view-A3',
+    '#C1': 'view-C1',
+    '#C2': 'view-C2',
+    '#C3': 'view-C3',
+    '#D1': 'view-D1',
+    '#D2': 'view-D2',
+    '#D3': 'view-D3',
+    '#D4': 'view-D4',
+    '#D5': 'view-D5',
+    '#E1': 'view-E1',
+    '#E2': 'view-E2',
+    '#E3': 'view-E3',
+    '#E4': 'view-E4',
+    '#E5': 'view-E5',
+  };
+  function applyRoute(){
+    const hash = location.hash || '#dashboard';
+    for(const key in routes){
+      const el = document.getElementById(routes[key]);
+      if(!el) continue;
+      if(key === hash){ el.classList.remove('hidden'); }
+      else{ el.classList.add('hidden'); }
+    }
+    // 激活态样式（侧栏子菜单）
+    document.querySelectorAll('.submenu a').forEach(a=>{
+      if(a.getAttribute('href')===hash){ a.classList.add('active'); }
+      else{ a.classList.remove('active'); }
+    });
+  }
+  window.addEventListener('hashchange', applyRoute);
+  applyRoute();
+
+  /* ============== 书架卡片可点击区域增强 ============== */
+  document.querySelectorAll('#view-bookshelf .card-s').forEach(card=>{
+    const primary = card.querySelector('.btn.primary'); if(!primary) return;
+    card.addEventListener('click', e=>{ if(e.target.closest('.btn')) return; primary.click(); });
+    card.addEventListener('keydown', e=>{ if(e.key==='Enter') primary.click(); });
+  });
+</script>
+</body>
+</html>
